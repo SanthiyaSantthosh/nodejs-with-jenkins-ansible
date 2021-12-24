@@ -1,0 +1,97 @@
+---
+- hosts: localhost
+  tasks:
+    - name: Update apt repo and cache on all Debian/Ubuntu boxes
+      apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+
+    - name: Upgrade all packages on servers
+      become: true
+      apt: upgrade=dist force_apt_get=yes
+
+    - name: Ansible shell module multiple commands
+      become: true
+      shell: 'curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -'
+
+    - name: Express package
+      become: true
+      shell: 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash'
+
+    - name: nvm pag
+      become: true
+      shell: . ~/.nvm/nvm.sh
+
+    - name: Install reqired packages
+      become: true
+      apt: name={{ item }} state=present
+      with_items:
+        - git
+        - curl
+        - wget
+        - nginx
+        - nodejs
+
+    - name: Cloning the git repo
+      git:
+       repo: https://github.com/contentful/the-example-app.nodejs.git
+       dest: /home/ubuntu/playbook/mern
+       clone: yes
+       update: yes
+       force: yes
+
+    - name: Install packages based on package.json using the npm
+      become: true
+      npm:
+        path: /home/ubuntu/playbook/mern
+        state: present
+
+    - name: Build app
+      command: npm run build
+      args:
+        creates: /home/ubuntu/playbook/mern
+
+    - name: nvm node installation
+      become: true
+      shell: nvm install node
+      args:
+        creates: /home/ubuntu/playbook/mern
+
+    - name: pm2 node installation
+      become: true
+      npm:
+       name: pm2
+       global: yes
+
+    - name: pm2 node installation
+      become: true
+      shell: pm2 start app.js
+      args:
+        creates: /home/ubuntu/playbook/mern
+
+
+    - name: Build app
+      become: true
+      command: npm run start:dev
+      args:
+        creates: /home/ubuntu/playbook/mern
+ 
+    - name: Install Nginx
+      become: true
+      apt: name=nginx state=latest
+      notify:
+        - restart nginx
+      
+    - name: Enable new site
+      become: true
+      copy:
+        src: /home/ubuntu/playbook/node.conf
+        dest: /etc/nginx/sites-available/node.conf
+
+
+    - name: Enable new site
+      become: true
+      file:
+        src: /etc/nginx/sites-available/node.conf
+        dest: /etc/nginx/sites-enabled/node.conf
+        state: link
+      notify:
+        - restart nginx
